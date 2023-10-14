@@ -1,0 +1,12 @@
+diff --git a/.config/emacs/init.el b/.config/emacs/init.el
+index 022fc95..3d0469a 100644
+--- a/.config/emacs/init.el
++++ b/.config/emacs/init.el
+@@ -1,3 +1,7 @@
++;; set modifier keys for macOS
++(setq mac-command-modifier 'meta)
++(setq mac-option-modifier 'super)
++
+ ;; inhibit startup message
+ (setq inhibit-startup-message t
+       visible-bell t)
