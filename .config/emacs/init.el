@@ -44,6 +44,10 @@
 (fido-vertical-mode 1)
 (setq completions-detailed t)
 
+;; midnight.el
+(require 'midnight)
+(midnight-delay-set 'midnight-delay 16200) ; (eq (* 4.5 60 60) "4:30am")
+
 ;; set indentation style for C
 (setq-default c-default-style "linux"
 	      indent-tabs-mode t)
@@ -97,8 +101,8 @@ source: https://www.emacswiki.org/emacs/FlySpell "
   (message "Other windows deleted and buffers killed."))
 (global-set-key (kbd "C-x C-1") 'delete-other-windows-and-kill-buffers)
 
-(defun switch-to-non-file-buffer (buffer-or-name &optional norecord force-same-window)
-  "Switch to non-file buffer, with the exception of '*scratch*'."
+(defun switch-to-only-file-buffer (buffer-or-name &optional norecord force-same-window)
+  "Switch to only file buffer, with the exception of '*scratch*'."
   (interactive
    (let ((force-same-window
           (cond
@@ -122,13 +126,19 @@ source: https://www.emacswiki.org/emacs/FlySpell "
                         (other-buffer (current-buffer))
                         (confirm-nonexistent-file-or-buffer)
                         (lambda (name.buf)
-  (let ((buf-name (car name.buf)))
-    (or (string= "*scratch*" buf-name) ; exception: *scratch* buffer
-        (not (string-match "^\\*.*\\*$" buf-name)))))))))
+  (let ((buf-name (car name.buf))
+        (buf (cdr name.buf)))
+    (and (not (string= "*scratch*" buf-name)) ; exception: *scratch* buffer
+         (not (string-match "^\\*.*\\*$" buf-name)) ; exclude buffers with names surrounded by asterisks
+         (not (eq 'dired-mode (buffer-local-value 'major-mode buf)))))))))) ; exclude dired buffers
   (switch-to-buffer buffer-or-name norecord force-same-window))
 
-(global-set-key (kbd "C-x b") 'switch-to-non-file-buffer) ; non-file buffer (except *scratch*)
+(global-set-key (kbd "C-x b") 'switch-to-only-file-buffer) ; only file buffer (except *scratch*)
 (global-set-key (kbd "C-x B") 'switch-to-buffer) ; all buffer
+
+(add-hook 'eshell-mode-hook
+          (lambda ()
+            (eshell/alias "clear" "clear 1")))
 
 ;; use-package
 (require 'package)
@@ -149,6 +159,9 @@ source: https://www.emacswiki.org/emacs/FlySpell "
   :init
   (setq evil-want-keybinding nil)
 
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+
   ;; use Emacs bindings in insert mode
   (setq evil-disable-insert-state-bindings t)
 
@@ -160,6 +173,12 @@ source: https://www.emacswiki.org/emacs/FlySpell "
 
   ;; set backslash as local leader
   (evil-set-leader 'normal "\\" t))
+
+;; Evil Collection
+(use-package evil-collection
+  :after evil
+  :config
+  (evil-collection-init))
 
 ;; git-gutter
 (use-package git-gutter
@@ -177,6 +196,13 @@ source: https://www.emacswiki.org/emacs/FlySpell "
 (use-package which-key
   :config
   (which-key-mode))
+
+;; yasnippet
+(use-package yasnippet
+  :config (yas-global-mode))
+
+;; yasnippet-snippets
+(use-package yasnippet-snippets)
 
 ;; lsp-mode
 (use-package lsp-mode
@@ -209,7 +235,8 @@ source: https://www.emacswiki.org/emacs/FlySpell "
   (add-hook 'after-init-hook 'global-company-mode)
   :config
   (setq company-minimum-prefix-length 1
-	company-idle-delay 0.0)) ;; default: 0.2
+        company-idle-delay 0.0) ;; default: 0.2
+  (add-hook 'eshell-mode-hook (lambda () (company-mode -1)))) ; disable company in eshell
 
 ;; flycheck
 (use-package flycheck)
@@ -231,6 +258,12 @@ source: https://www.emacswiki.org/emacs/FlySpell "
 ;; dap-java
 (use-package dap-java
   :ensure nil)
+
+;; Racket Mode
+(use-package racket-mode)
+
+;; libvterm
+(use-package vterm)
 
 ;; perspective.el
 (use-package perspective
