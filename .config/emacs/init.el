@@ -7,8 +7,15 @@
 (scroll-bar-mode -1)
 (menu-bar-mode -1)
 
+;; hide native comp warnings
+(setq native-comp-async-report-warnings-errors nil)
+
 ;; enable line number
 (global-display-line-numbers-mode 1)
+
+;; relative line numbers
+(display-line-numbers-mode)
+(setq display-line-numbers-type 'relative)
 
 ;; set non blinking cursor
 (blink-cursor-mode 0)
@@ -20,12 +27,9 @@
 (custom-set-faces
  '(hl-line ((t (:background "gray20")))))
 
-;; check for graphical display and adjust visuals accordingly
-(when (display-graphic-p)
-  ;; invert only if the background color is the original one (e.g., "white")
-  (when (equal (face-background 'default) "white")
-    (invert-face 'default)) ; swap foreground and background colors
-  (setq frame-background-mode 'dark)) ; set frame background to dark
+;; light on dark
+(set-background-color "black")
+(set-foreground-color "white")
 
 ;; set path for customise system
 (setq custom-file "~/.config/emacs/custom.el")
@@ -140,13 +144,11 @@ source: https://www.emacswiki.org/emacs/FlySpell "
           (lambda ()
             (eshell/alias "clear" "clear 1")))
 
-;; use-package
 (require 'package)
 (add-to-list 'package-archives '("gnu"   . "https://elpa.gnu.org/packages/"))
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
 
-(unless (package-installed-p 'use-package)
-  (package-install 'use-package))
+;; use-package
 (require 'use-package)
 
 ;; ensure packages are automatically installed when using use-package
@@ -157,8 +159,6 @@ source: https://www.emacswiki.org/emacs/FlySpell "
   :demand t
   :bind (("<escape>" . keyboard-escape-quit))
   :init
-  (setq evil-want-keybinding nil)
-
   (setq evil-want-integration t)
   (setq evil-want-keybinding nil)
 
@@ -172,7 +172,15 @@ source: https://www.emacswiki.org/emacs/FlySpell "
   (evil-set-leader 'normal " ")
 
   ;; set backslash as local leader
-  (evil-set-leader 'normal "\\" t))
+  (evil-set-leader 'normal "\\" t)
+
+  ;; buffer operation
+  (evil-define-key 'normal 'global (kbd "<leader>bs") 'switch-to-only-file-buffer)
+  (evil-define-key 'normal 'global (kbd "<leader>bS") 'switch-to-buffer)
+  (evil-define-key 'normal 'global (kbd "<leader>bk") 'kill-buffer)
+
+  ;; file operation
+  (evil-define-key 'normal 'global (kbd "<leader>fs") 'find-file))
 
 ;; Evil Collection
 (use-package evil-collection
@@ -184,18 +192,28 @@ source: https://www.emacswiki.org/emacs/FlySpell "
 (use-package git-gutter
   :hook (prog-mode . git-gutter-mode)
   :config
-  (setq git-gutter:update-interval 0.02))
+  (setq git-gutter:update-interval 0.02)
+  (evil-define-key 'normal 'global (kbd "<leader>gj") 'git-gutter:next-hunk)
+  (evil-define-key 'normal 'global (kbd "<leader>gk") 'git-gutter:previous-hunk))
 
-(use-package git-gutter-fringe
-  :config
-  (define-fringe-bitmap 'git-gutter-fr:added [224] nil nil '(center repeated))
-  (define-fringe-bitmap 'git-gutter-fr:modified [224] nil nil '(center repeated))
-  (define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom))
+;; git-gutter-fringe.el (disable in tty frame)
+(if (display-graphic-p)
+    (use-package git-gutter-fringe
+    :config
+    (define-fringe-bitmap 'git-gutter-fr:added [224] nil nil '(center repeated))
+    (define-fringe-bitmap 'git-gutter-fr:modified [224] nil nil '(center repeated))
+    (define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom)))
 
 ;; which-key
 (use-package which-key
   :config
   (which-key-mode))
+
+;; treesit-auto
+(use-package treesit-auto
+  :config
+  (setq treesit-auto-install t)
+  (global-treesit-auto-mode))
 
 ;; yasnippet
 (use-package yasnippet
@@ -204,30 +222,28 @@ source: https://www.emacswiki.org/emacs/FlySpell "
 ;; yasnippet-snippets
 (use-package yasnippet-snippets)
 
-;; lsp-mode
-(use-package lsp-mode
-  :init
-  ;; set prefix for lsp-command-keymap
-  (setq lsp-keymap-prefix "C-c l")
+;; Eglot
+(require 'eglot)
+(with-eval-after-load 'evil
+  (evil-define-key 'normal 'global (kbd "<leader>lr") 'eglot-rename)
+  (evil-define-key 'normal 'global (kbd "<leader>li") 'eglot-code-action-organize-imports)
+  (evil-define-key 'normal 'global (kbd "<leader>lh") 'eldoc)
+  (evil-define-key 'normal 'global (kbd "<leader>lf") 'eglot-format)
+  (evil-define-key 'normal 'global (kbd "<leader>lj") 'flymake-goto-next-error)
+  (evil-define-key 'normal 'global (kbd "<leader>lk") 'flymake-goto-prev-error))
+
+;; eglot-java (Eclipse JDT LS)
+(use-package eglot-java
   :hook
-  ((java-mode . lsp)
-   ;; which-key integration
-   (lsp-mode . lsp-enable-which-key-integration))
-  :commands lsp
+  (java-mode    . eglot-java-mode)
+  (java-ts-mode . eglot-java-mode)
   :config
-  ;; increase the amount of data which Emacs reads from the process
-  (setq read-process-output-max (* 1024 1024)) ;; 1 mb
-
-  ;; adjust gc-cons-threshold
-  (setq gc-cons-threshold 100000000)) ;; 100 mb
-
-;; lsp-ui
-(use-package lsp-ui
-  :commands lsp-ui-mode)
-
-;; lsp-java
-(use-package lsp-java
-  :config (add-hook 'java-mode-hook 'lsp))
+  (evil-define-key 'normal 'global (kbd "<leader>ln") 'eglot-java-file-new)
+  (evil-define-key 'normal 'global (kbd "<leader>lx") 'eglot-java-run-main)
+  (evil-define-key 'normal 'global (kbd "<leader>lt") 'eglot-java-run-test)
+  (evil-define-key 'normal 'global (kbd "<leader>lN") 'eglot-java-project-new)
+  (evil-define-key 'normal 'global (kbd "<leader>lT") 'eglot-java-project-build-task)
+  (evil-define-key 'normal 'global (kbd "<leader>lR") 'eglot-java-project-build-refresh))
 
 ;; company-mode
 (use-package company
@@ -241,23 +257,10 @@ source: https://www.emacswiki.org/emacs/FlySpell "
 ;; flycheck
 (use-package flycheck)
 
-;; dap-mode
-(use-package dap-mode
-  :after lsp-mode
+;; Magit
+(use-package magit
   :config
-  (dap-auto-configure-mode)
-
-  ;; Evil leader macros
-  (evil-define-key 'normal 'global (kbd "<leader>b") 'dap-breakpoint-toggle)
-  (evil-define-key 'normal 'global (kbd "<leader>d") 'dap-breakpoint-delete-all)
-  (evil-define-key 'normal 'global (kbd "<leader>n") 'dap-next)
-  (evil-define-key 'normal 'global (kbd "<leader>s") 'dap-step-in)
-  (evil-define-key 'normal 'global (kbd "<leader>c") 'dap-continue)
-  (evil-define-key 'normal 'global (kbd "<leader>q") 'dap-disconnect))
-
-;; dap-java
-(use-package dap-java
-  :ensure nil)
+  (evil-define-key 'normal 'global (kbd "<leader>gs") 'magit-status))
 
 ;; Racket Mode
 (use-package racket-mode)
